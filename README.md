@@ -10,9 +10,11 @@
 
 </div>
 
----
+<p align="center">
+  <img src="./assets/demo.gif" alt="Calculator Interactive Demo" width="850">
+</p>
 
-<!-- Add a captured Windows screenshot or short demo at ./assets/demo.gif when one is available. -->
+---
 
 ## 📌 Problem & Motivation
 
