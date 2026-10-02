@@ -2,7 +2,7 @@
 
 # Calculator
 
-**A lightweight Windows desktop calculator for everyday arithmetic, expression precedence, and reusable memory values.**
+**A lightweight Windows desktop calculator for everyday arithmetic, expression precedence, and reusable memory values**
 
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat-square&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Framework](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
