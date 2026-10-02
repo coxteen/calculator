@@ -1,10 +1,12 @@
 ﻿ using Calculator.Command;
 using Calculator.Model;
+using Calculator.Utils;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Globalization;
 using System.Windows;
 
 namespace Calculator.ViewModel
@@ -96,6 +98,15 @@ namespace Calculator.ViewModel
                 temp += EnteredKeys[i];
             }
             KeyPressedString = temp;
+        }
+
+        // Try parse the current EnteredNumber into decimal, removing digit grouping separators if present.
+        private bool TryGetEnteredNumber(out decimal value)
+        {
+            value = 0;
+            if (string.IsNullOrWhiteSpace(_enteredNumber)) return false;
+            string sanitized = _enteredNumber.Replace(",", "");
+            return decimal.TryParse(sanitized, NumberStyles.Number | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out value);
         }
         #endregion
 
@@ -202,10 +213,17 @@ namespace Calculator.ViewModel
         #endregion
 
         #region Button Pressed Command
-        public ButtonPressedCommand buttonPressedCommand
+        public ButtonPressedCommand ButtonCommand
         {
             get { return _buttonPressedCommand; }
             set { _buttonPressedCommand = value; }
+        }
+
+        [Obsolete("Use ButtonCommand (PascalCase) instead.")]
+        public ButtonPressedCommand buttonPressedCommand
+        {
+            get => ButtonCommand;
+            set => ButtonCommand = value;
         }
         #endregion
 
@@ -252,7 +270,7 @@ namespace Calculator.ViewModel
             EnteredNumber = "0";
             KeyPressedString = "";
 
-            buttonPressedCommand = new ButtonPressedCommand(this);
+            ButtonCommand = new ButtonPressedCommand(this);
             _memoryStack = new List<decimal>();
 
             MemoryGridVisible = false;
@@ -273,26 +291,47 @@ namespace Calculator.ViewModel
             #region Cut Copy Paste
             if (pressedButton == "Cut")
             {
-                Clipboard.SetText(EnteredNumber);
-                EnteredNumber = "0";
-                OnPropertyChanged(nameof(EnteredNumber));
+                try
+                {
+                    Clipboard.SetText(EnteredNumber);
+                    EnteredNumber = "0";
+                    OnPropertyChanged(nameof(EnteredNumber));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Clipboard operation failed: " + ex.Message, "Error");
+                }
                 PreviousEnteredKey = pressedButton;
                 return;
             }
             if (pressedButton == "Copy")
             {
-                Clipboard.SetText(EnteredNumber);
+                try
+                {
+                    Clipboard.SetText(EnteredNumber);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Clipboard operation failed: " + ex.Message, "Error");
+                }
                 PreviousEnteredKey = pressedButton;
                 return;
             }
             if (pressedButton == "Paste")
             {
-                if (Clipboard.ContainsText())
+                try
                 {
-                    EnteredNumber = Clipboard.GetText();
-                    EnteredKeys.Add(EnteredNumber);
-                    UpdateEnteredKeysOnGUI();
-                    OnPropertyChanged(nameof(EnteredNumber));
+                    if (Clipboard.ContainsText())
+                    {
+                        EnteredNumber = Clipboard.GetText();
+                        EnteredKeys.Add(EnteredNumber);
+                        UpdateEnteredKeysOnGUI();
+                        OnPropertyChanged(nameof(EnteredNumber));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Clipboard operation failed: " + ex.Message, "Error");
                 }
                 PreviousEnteredKey = pressedButton;
                 return;
@@ -345,7 +384,12 @@ namespace Calculator.ViewModel
 
                 case "M+":
                     {
-                        decimal current = Convert.ToDecimal(EnteredNumber);
+                        if (!TryGetEnteredNumber(out decimal current))
+                        {
+                            MessageBox.Show("Invalid number format.", "Error");
+                            PreviousEnteredKey = pressedButton;
+                            return;
+                        }
                         if (_memoryStack.Any())
                         {
                             _memoryStack[_memoryStack.Count - 1] += current;
@@ -360,7 +404,12 @@ namespace Calculator.ViewModel
 
                 case "M-":
                     {
-                        decimal current = Convert.ToDecimal(EnteredNumber);
+                        if (!TryGetEnteredNumber(out decimal current))
+                        {
+                            MessageBox.Show("Invalid number format.", "Error");
+                            PreviousEnteredKey = pressedButton;
+                            return;
+                        }
                         if (_memoryStack.Any())
                         {
                             _memoryStack[_memoryStack.Count - 1] -= current;
@@ -375,7 +424,12 @@ namespace Calculator.ViewModel
 
                 case "MS":
                     {
-                        decimal current = Convert.ToDecimal(EnteredNumber);
+                        if (!TryGetEnteredNumber(out decimal current))
+                        {
+                            MessageBox.Show("Invalid number format.", "Error");
+                            PreviousEnteredKey = pressedButton;
+                            return;
+                        }
                         _memoryStack.Add(current);
                         PreviousEnteredKey = pressedButton;
                         return;
@@ -481,19 +535,31 @@ namespace Calculator.ViewModel
                     {
                         if (FirstNumberEntered)
                         {
-                            Number = Convert.ToDecimal(EnteredNumber);
+                            if (!TryGetEnteredNumber(out decimal parsed))
+                            {
+                                MessageBox.Show("Invalid number format.", "Error");
+                                PreviousEnteredKey = pressedButton;
+                                return;
+                            }
+                            Number = parsed;
                             FirstNumberEntered = false;
                         }
                         else
                         {
+                            if (!TryGetEnteredNumber(out decimal parsed))
+                            {
+                                MessageBox.Show("Invalid number format.", "Error");
+                                PreviousEnteredKey = pressedButton;
+                                return;
+                            }
                             Number = SelectedFunction switch
                             {
-                                "Addition" => CalculatorLogic.Add(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Subtraction" => CalculatorLogic.Subtract(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Multiplication" => CalculatorLogic.Multiply(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Division" => CalculatorLogic.Divide(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Modulo" => CalculatorLogic.Modulo(Number, Convert.ToDecimal(EnteredNumber)),
-                                _ => Convert.ToDecimal(EnteredNumber)
+                                "Addition" => CalculatorLogic.Add(Number, parsed),
+                                "Subtraction" => CalculatorLogic.Subtract(Number, parsed),
+                                "Multiplication" => CalculatorLogic.Multiply(Number, parsed),
+                                "Division" => CalculatorLogic.Divide(Number, parsed),
+                                "Modulo" => CalculatorLogic.Modulo(Number, parsed),
+                                _ => parsed
                             };
                             EnteredNumber = FormatResult(Number);
                         }
@@ -514,14 +580,26 @@ namespace Calculator.ViewModel
                 #region One operand operations
                 case "x^2":
                     PreviousNumber = EnteredNumber;
-                    Number = CalculatorLogic.Square(Convert.ToDecimal(EnteredNumber));
+                    if (!TryGetEnteredNumber(out decimal parsedX2))
+                    {
+                        MessageBox.Show("Invalid number format.", "Error");
+                        PreviousEnteredKey = pressedButton;
+                        return;
+                    }
+                    Number = CalculatorLogic.Square(parsedX2);
                     EnteredNumber = FormatResult(Number);
                     EnteredKeys.Clear();
                     EnteredKeys.Add(PreviousNumber + "^2=" + EnteredNumber);
                     break;
 
                 case "+/-":
-                    Number = CalculatorLogic.Inverse(Convert.ToDecimal(EnteredNumber));
+                    if (!TryGetEnteredNumber(out decimal parsedInv))
+                    {
+                        MessageBox.Show("Invalid number format.", "Error");
+                        PreviousEnteredKey = pressedButton;
+                        return;
+                    }
+                    Number = CalculatorLogic.Inverse(parsedInv);
                     EnteredNumber = FormatResult(Number);
                     if (EnteredKeys.Count > 0)
                     {
@@ -539,7 +617,13 @@ namespace Calculator.ViewModel
 
                 case "1/x":
                     PreviousNumber = EnteredNumber;
-                    Number = CalculatorLogic.OneOver(Convert.ToDecimal(EnteredNumber));
+                    if (!TryGetEnteredNumber(out decimal parsedOneOver))
+                    {
+                        MessageBox.Show("Invalid number format.", "Error");
+                        PreviousEnteredKey = pressedButton;
+                        return;
+                    }
+                    Number = CalculatorLogic.OneOver(parsedOneOver);
                     EnteredNumber = FormatResult(Number);
                     EnteredKeys.Clear();
                     EnteredKeys.Add("1/" + PreviousNumber + "=" + EnteredNumber);
@@ -547,7 +631,13 @@ namespace Calculator.ViewModel
 
                 case "sqrt(x)":
                     PreviousNumber = EnteredNumber;
-                    Number = CalculatorLogic.Sqrt(Convert.ToDecimal(EnteredNumber));
+                    if (!TryGetEnteredNumber(out decimal parsedSqrt))
+                    {
+                        MessageBox.Show("Invalid number format.", "Error");
+                        PreviousEnteredKey = pressedButton;
+                        return;
+                    }
+                    Number = CalculatorLogic.Sqrt(parsedSqrt);
                     EnteredNumber = FormatResult(Number);
                     EnteredKeys.Clear();
                     EnteredKeys.Add("sqrt(" + PreviousNumber + ")=" + EnteredNumber);
@@ -574,14 +664,20 @@ namespace Calculator.ViewModel
                         // Process without prioritizing operations: perform the calculation as entered.
                         if (!FirstNumberEntered)
                         {
+                            if (!TryGetEnteredNumber(out decimal parsed))
+                            {
+                                MessageBox.Show("Invalid number format.", "Error");
+                                PreviousEnteredKey = pressedButton;
+                                return;
+                            }
                             Number = SelectedFunction switch
                             {
-                                "Addition" => CalculatorLogic.Add(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Subtraction" => CalculatorLogic.Subtract(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Multiplication" => CalculatorLogic.Multiply(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Division" => CalculatorLogic.Divide(Number, Convert.ToDecimal(EnteredNumber)),
-                                "Modulo" => CalculatorLogic.Modulo(Number, Convert.ToDecimal(EnteredNumber)),
-                                _ => Convert.ToDecimal(EnteredNumber)
+                                "Addition" => CalculatorLogic.Add(Number, parsed),
+                                "Subtraction" => CalculatorLogic.Subtract(Number, parsed),
+                                "Multiplication" => CalculatorLogic.Multiply(Number, parsed),
+                                "Division" => CalculatorLogic.Divide(Number, parsed),
+                                "Modulo" => CalculatorLogic.Modulo(Number, parsed),
+                                _ => parsed
                             };
                             EnteredNumber = FormatResult(Number);
                             EnteredKeys.Add("=");

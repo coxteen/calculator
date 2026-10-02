@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 
-public class ExpressionEvaluator
+namespace Calculator.Utils
+{
+    public class ExpressionEvaluator
 {
     // Define operator precedence
     private static Dictionary<string, int> precedence = new Dictionary<string, int>
@@ -51,6 +53,8 @@ public class ExpressionEvaluator
     // Evaluate a postfix expression.
     public static decimal EvaluatePostfix(List<string> postfixTokens)
     {
+        if (postfixTokens == null) throw new ArgumentNullException(nameof(postfixTokens));
+
         Stack<decimal> stack = new Stack<decimal>();
 
         foreach (string token in postfixTokens)
@@ -61,20 +65,32 @@ public class ExpressionEvaluator
             }
             else if (precedence.ContainsKey(token))
             {
+                if (stack.Count < 2)
+                    throw new InvalidOperationException($"Insufficient operands for operator '{token}'");
+
                 decimal b = stack.Pop();
                 decimal a = stack.Pop();
+
                 decimal result = token switch
                 {
                     "+" => a + b,
                     "-" => a - b,
                     "*" => a * b,
-                    "/" => a / b,
-                    "%" => a % b,
-                    _ => throw new Exception("Unsupported operator")
+                    "/" => b == 0 ? throw new DivideByZeroException("Division by zero") : a / b,
+                    "%" => b == 0 ? throw new DivideByZeroException("Modulo by zero") : a % b,
+                    _ => throw new NotSupportedException($"Unsupported operator '{token}'")
                 };
                 stack.Push(result);
             }
+            else
+            {
+                // Unknown token (could be parentheses or unsupported symbol)
+                throw new NotSupportedException($"Unsupported token '{token}' in expression");
+            }
         }
+
+        if (stack.Count != 1)
+            throw new InvalidOperationException("Malformed expression: unexpected number of values remaining on stack");
 
         return stack.Pop();
     }
@@ -82,7 +98,9 @@ public class ExpressionEvaluator
     // This helper method combines the two steps.
     public static decimal EvaluateInfixExpression(List<string> tokens)
     {
+        if (tokens == null) throw new ArgumentNullException(nameof(tokens));
         List<string> postfix = InfixToPostfix(tokens);
         return EvaluatePostfix(postfix);
+    }
     }
 }

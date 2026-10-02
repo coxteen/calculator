@@ -40,6 +40,20 @@ namespace Calculator.Model
         {
             return -number;
         }
+
+        /// <summary>
+        /// Returns the negation of the provided number. Replaces the older Inverse method name.
+        /// </summary>
+        public static decimal Negate(decimal number)
+        {
+            return -number;
+        }
+
+        [Obsolete("Use Negate instead.")]
+        public static decimal InverseObsolete(decimal number)
+        {
+            return Negate(number);
+        }
         public static decimal OneOver(decimal number)
         {
             if (number == 0)
