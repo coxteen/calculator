@@ -117,4 +117,4 @@ There are no secrets to configure or commit.
 ## 📄 License & Author
 
 - **Author:** [Costin Ghiujan](https://github.com/coxteen)
-- **License:** Released unde the [MIT License](LICENSE.TXT)
+- **License:** Released under the [MIT License](LICENSE.TXT)
